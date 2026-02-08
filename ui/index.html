@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HMD Hayyans Media Downloader</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Rajdhani:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="industrial-theme">
+    <div class="app-container">
+      <!-- Title Bar -->
+      <div id="title-bar" class="custom-title-bar">
+        <div class="drag-region">
+          <button id="hamburger-btn" class="control-btn menu-toggle">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+          <span class="logo">H<span class="accent">M</span>D</span>
+          <div class="divider"></div>
+          <button
+            id="update-notification-btn"
+            class="update-notification hidden"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span>UPDATE REQUIRED</span>
+          </button>
+          <span id="app-status" class="status-indicator">READY</span>
+        </div>
+        <div class="window-controls">
+          <button id="min-btn" class="control-btn">
+            <svg width="12" height="12">
+              <path d="M2 6h8" stroke="currentColor" stroke-width="2" />
+            </svg>
+          </button>
+          <button id="max-btn" class="control-btn">
+            <svg width="12" height="12">
+              <rect
+                x="2"
+                y="2"
+                width="8"
+                height="8"
+                stroke="currentColor"
+                stroke-width="2"
+                fill="none"
+              />
+            </svg>
+          </button>
+          <button id="close-btn" class="control-btn close">
+            <svg width="12" height="12">
+              <path
+                d="M2 2l8 8M10 2l-8 8"
+                stroke="currentColor"
+                stroke-width="2"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="app-content">
+        <div id="sidebar-overlay" class="sidebar-overlay hidden"></div>
+        <aside id="app-sidebar" class="sidebar">
+          <div class="sidebar-header">
+            <span class="logo">HMD</span>
+            <button id="close-sidebar" class="control-btn close-sidebar">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+
+          <div class="sidebar-section top">
+            <div class="sidebar-item">
+              <label>ON FINISH</label>
+              <select id="on-complete-select" class="sidebar-select">
+                <option value="none">DO NOTHING</option>
+                <option value="shutdown">SHUTDOWN</option>
+                <option value="sleep">SLEEP</option>
+                <option value="hibernate">HIBERNATE</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="sidebar-section middle">
+            <button id="settings-btn" class="sidebar-btn" title="Settings">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+                ></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              <span>SETTINGS</span>
+            </button>
+          </div>
+
+          <div class="sidebar-section bottom">
+            <button id="quit-btn" class="sidebar-btn danger" title="Quit">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
+              <span>EXIT</span>
+            </button>
+          </div>
+        </aside>
+
+        <main id="view-home" class="view-page workspace active">
+          <header class="action-bar">
+            <div class="url-input-group">
+              <input
+                type="text"
+                id="url-input"
+                placeholder="PASTE YOUTUBE URL OR PRESS CTRL+V"
+                spellcheck="false"
+                autocomplete="off"
+              />
+            </div>
+            <button id="download-btn" class="primary-action">
+              <span class="label">Download</span>
+            </button>
+          </header>
+
+          <section class="downloads-manager">
+            <div class="manager-header">
+              <div class="title-group">
+                <svg
+                  class="icon"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                <h2>QUEUED DOWNLOADS</h2>
+              </div>
+              <div class="stats-group">
+                <span id="active-count">0 ACTIVE</span>
+                <div class="mini-divider"></div>
+                <span id="speed-total">0 KB/S</span>
+              </div>
+            </div>
+
+            <div class="table-container">
+              <table class="download-table">
+                <thead>
+                  <tr>
+                    <th class="col-preview">PREVIEW</th>
+                    <th class="col-title">VIDEO TITLE</th>
+                    <th class="col-quality">QUALITY</th>
+                    <th class="col-progress">STATUS / PROGRESS</th>
+                    <th class="col-actions">ACTION</th>
+                  </tr>
+                </thead>
+                <tbody id="download-list-body">
+                  <tr id="empty-state">
+                    <td colspan="5">
+                      <div class="empty-msg">
+                        <p>NO DOWNLOADS</p>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </main>
+
+            <div id="view-settings" class="view-page settings-page hidden">
+                <div class="settings-header">
+                    <div class="header-main">
+                        <button id="settings-back-btn" class="btn-back-plain">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                            BACK TO DOWNLOADS
+                        </button>
+                        <div class="title-wrap">
+                            <h2>SETTINGS</h2>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="settings-content-scroll">
+                    <div class="industrial-grid-overlay"></div>
+                    
+                    <div class="settings-section-group">
+                        <div class="settings-section">
+                            <h4>AUTHENTICATION</h4>
+                            <p class="settings-desc">Required for age-restricted videos and restricted content.</p>
+                            
+                            <div class="cookie-status-card" id="cookie-status-card">
+                                <div class="status-monitor">
+                                    <div class="status-indicator">
+                                        <div class="status-dot-outer">
+                                            <div class="status-dot" id="cookie-status-dot"></div>
+                                        </div>
+                                        <span id="cookie-status-text">Checking status...</span>
+                                    </div>
+                                </div>
+                                <button id="clear-cookies-btn" class="tech-btn danger hidden">Clear Cookies</button>
+                            </div>
+
+                            <div class="import-cookies-area">
+                                <label class="block-label">YouTube Login</label>
+                                <div class="import-row">
+                                    <button id="import-cookies-btn" class="action-btn sm full-width tech-glow-btn">
+                                        Login via Browser
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="settings-section">
+                            <h4>OUTPUT PREFERENCES</h4>
+                            <p class="settings-desc">Select your preferred formats and hardware acceleration.</p>
+                            
+                            <div class="settings-list">
+                                <div class="setting-item-row">
+                                    <div class="item-info">
+                                        <label>Video Extension</label>
+                                        <span class="item-desc">Preferred container for video downloads.</span>
+                                    </div>
+                                    <div class="custom-select-wrapper tech-select">
+                                        <select id="pref-video-ext">
+                                            <option value="mp4">MP4</option>
+                                            <option value="mkv">MKV</option>
+                                            <option value="webm">WebM</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="setting-item-row">
+                                    <div class="item-info">
+                                        <label>Audio Extension</label>
+                                        <span class="item-desc">Preferred format for audio extraction.</span>
+                                    </div>
+                                    <div class="custom-select-wrapper tech-select">
+                                        <select id="pref-audio-ext">
+                                            <option value="mp3">MP3</option>
+                                            <option value="m4a">M4A</option>
+                                            <option value="wav">WAV</option>
+                                            <option value="flac">FLAC</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="setting-item-row">
+                                    <div class="item-info">
+                                        <label>Thumbnail Extension</label>
+                                        <span class="item-desc">Preferred format for saved thumbnails.</span>
+                                    </div>
+                                    <div class="custom-select-wrapper tech-select">
+                                        <select id="pref-thumb-ext">
+                                            <option value="webp">WebP</option>
+                                            <option value="png">PNG</option>
+                                            <option value="jpg">JPG</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="setting-item-row">
+                                    <div class="item-info">
+                                        <label>Hardware Acceleration</label>
+                                        <span class="item-desc">Use GPU for faster merging and transcoding.</span>
+                                    </div>
+                                    <div class="custom-select-wrapper tech-select">
+                                        <select id="pref-hw-accel">
+                                            <option value="auto">Auto Detect</option>
+                                            <option value="none">CPU Only (Disabled)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="settings-section">
+                            <h4>APPLICATION</h4>
+                            <p class="settings-desc">Security and behavior settings.</p>
+                            
+                            <div class="settings-list">
+                                <div class="setting-item-row">
+                                    <div class="item-info">
+                                        <label>Supported Sites Only</label>
+                                        <span class="item-desc">Restricts downloads to YouTube, Instagram, FB, and Twitter.</span>
+                                    </div>
+                                    <div class="custom-select-wrapper tech-select">
+                                        <select id="pref-strict-mode">
+                                            <option value="on">Strict (Recommended)</option>
+                                            <option value="off">Allow All Sites</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+      <div id="config-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+          <div class="modal-header">
+            <h3>DOWNLOAD CONFIGURATION</h3>
+            <button id="close-modal" class="close-btn">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+
+          <div class="modal-body">
+            <div class="video-preview">
+              <img id="modal-thumb" src="" alt="" />
+              <div class="info">
+                <h4 id="modal-title">---</h4>
+                <p id="modal-channel">---</p>
+              </div>
+            </div>
+
+            <div class="config-stepper">
+              <div id="step-1" class="step-content active">
+                <label>SELECT OUTPUT TARGET</label>
+                <div class="format-grid">
+                  <div class="format-card" data-type="video">
+                    <span class="icon">
+                      <svg
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <rect
+                          x="2"
+                          y="2"
+                          width="20"
+                          height="20"
+                          rx="2.18"
+                          ry="2.18"
+                        ></rect>
+                        <line x1="7" y1="2" x2="7" y2="22"></line>
+                        <line x1="17" y1="2" x2="17" y2="22"></line>
+                        <line x1="2" y1="12" x2="22" y2="12"></line>
+                        <line x1="2" y1="7" x2="7" y2="7"></line>
+                        <line x1="2" y1="17" x2="7" y2="17"></line>
+                        <line x1="17" y1="17" x2="22" y2="17"></line>
+                        <line x1="17" y1="7" x2="22" y2="7"></line>
+                      </svg>
+                    </span>
+                    <span class="label">VIDEO</span>
+                  </div>
+                  <div class="format-card" data-type="audio">
+                    <span class="icon">
+                      <svg
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M9 18V5l12-2v13"></path>
+                        <circle cx="6" cy="18" r="3"></circle>
+                        <circle cx="18" cy="16" r="3"></circle>
+                      </svg>
+                    </span>
+                    <span class="label">AUDIO</span>
+                  </div>
+                  <div class="format-card" data-type="thumbnail">
+                    <span class="icon">
+                      <svg
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <rect
+                          x="3"
+                          y="3"
+                          width="18"
+                          height="18"
+                          rx="2"
+                          ry="2"
+                        ></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                        <polyline points="21 15 16 10 5 21"></polyline>
+                      </svg>
+                    </span>
+                    <span class="label">THUMBNAIL</span>
+                  </div>
+                </div>
+
+                <div id="playlist-section" class="playlist-section hidden">
+                  <div class="section-header">
+                    <label>SELECT VIDEOS FROM PLAYLIST</label>
+                    <div class="selection-controls">
+                      <button id="playlist-select-all" class="text-btn">
+                        SELECT ALL
+                      </button>
+                      <div class="mini-divider"></div>
+                      <button id="playlist-deselect-all" class="text-btn">
+                        NONE
+                      </button>
+                    </div>
+                  </div>
+                  <div
+                    id="playlist-items-container"
+                    class="playlist-items-container"
+                  >
+                  </div>
+                </div>
+              </div>
+
+              <div id="step-2" class="step-content hidden">
+                <label>ENCODE PRESET</label>
+                <div class="custom-select-wrapper">
+                  <select id="quality-select"></select>
+                </div>
+              </div>
+
+              <div id="step-3" class="step-content hidden">
+                <label>STORAGE PATH</label>
+                <div class="path-input-group">
+                  <input type="text" id="output-dir" readonly />
+                  <button id="browse-btn" class="browse-action">BROWSE</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <div id="nav-step-1" class="step-nav-footer">
+              <div id="playlist-footer-nav" class="playlist-footer hidden">
+                <span id="playlist-selection-count-nav">0 VIDEOS SELECTED</span>
+              </div>
+              <div id="step1-placeholder"></div>
+              <button id="step1-next-btn" class="btn-next primary">NEXT</button>
+            </div>
+            <div id="nav-step-2" class="step-nav-footer hidden">
+              <button class="btn-back">PREVIOUS</button>
+              <button class="btn-next primary">CONTINUE</button>
+            </div>
+            <div id="nav-step-3" class="step-nav-footer hidden">
+              <button class="btn-back">PREVIOUS</button>
+              <button id="confirm-download-btn" class="btn-confirm primary">DOWNLOAD</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      <div id="cancel-confirm-modal" class="modal-overlay hidden">
+        <div class="modal-card confirm-modal">
+          <div class="modal-header">
+            <h3>CONFIRM CANCELLATION</h3>
+          </div>
+          <div class="modal-body">
+            <p class="confirm-text">
+              Are you sure you want to cancel this download?
+            </p>
+            <p class="confirm-subtext">The partial file will be deleted.</p>
+            <div class="confirm-actions">
+              <button id="cancel-confirm-no" class="btn-back">
+                NO, KEEP IT
+              </button>
+              <button id="cancel-confirm-yes" class="btn-confirm primary">
+                YES, CANCEL
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="confirm-modal" class="modal-overlay hidden" style="z-index: 10000">
+        <div class="modal-card" style="max-width: 450px;">
+          <div class="modal-header">
+            <h3 id="confirm-modal-title">CONFIRM ACTION</h3>
+            <button id="confirm-modal-close" class="close-btn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <div class="modal-body" style="padding: 30px; text-align: center;">
+            <p id="confirm-modal-message" style="font-size: 14px; color: var(--text-high); line-height: 1.6;">Are you sure?</p>
+          </div>
+          <div class="modal-footer" style="flex-direction: row; gap: 10px; justify-content: flex-end; background: rgba(0,0,0,0.2);">
+            <button id="confirm-modal-cancel" class="btn-back" style="padding: 10px 20px;">CANCEL</button>
+            <button id="confirm-modal-ok" class="btn-next primary" style="padding: 10px 20px;">CONFIRM</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="dep-modal" class="modal-overlay hidden" style="z-index: 9999">
+        <div class="modal-card" style="text-align: center; max-width: 400px">
+          <div class="modal-header" style="justify-content: center">
+            <h3>SYSTEM UPDATING</h3>
+          </div>
+          <div class="modal-body">
+            <p>Downloading required components...</p>
+            <div class="progress-bar-bg" style="height: 6px; margin: 15px 0">
+              <div
+                id="dep-progress"
+                class="progress-bar-fill"
+                style="width: 0%"
+              ></div>
+            </div>
+            <p
+              id="dep-status"
+              class="subtext"
+              style="font-size: 0.8rem; opacity: 0.7"
+            >
+              Initializing...
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div id="error-modal" class="modal-overlay hidden" style="z-index: 10001">
+        <div class="modal-card" style="max-width: 600px;">
+          <div class="modal-header">
+            <h3 style="color: var(--error)">CRITICAL ERROR</h3>
+            <button id="error-modal-close" class="close-btn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <div class="modal-body" style="padding: 20px;">
+            <p style="margin-bottom: 15px; color: var(--text-medium);">The process encountered an unexpected issue:</p>
+            <div class="technical-error-container" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-medium); border-radius: 4px; padding: 15px; max-height: 300px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 12px; color: var(--text-high); white-space: pre-wrap;" id="error-traceback"></div>
+          </div>
+          <div class="modal-footer" style="padding: 15px; background: rgba(0,0,0,0.2); display: flex; justify-content: flex-end; gap: 10px;">
+            <button id="error-modal-copy" class="btn-back" style="border-color: var(--accent-primary); color: var(--accent-primary);">COPY ERROR</button>
+            <button id="error-modal-ok" class="btn-next primary">DISMISS</button>
+          </div>
+        </div>
+      </div>
+
+      <footer class="system-footer">
+        <div class="footer-left">
+          <span>FREE PALESTINE</span>
+          <span class="emoji-flag">🍉</span>
+        </div>
+        <div class="footer-center">
+          <a
+            href="https://buymeacoffee.com/hayyan"
+            target="_blank"
+            class="support-dev-btn"
+            >SUPPORT THE DEV</a
+          >
+        </div>
+        <div class="social-links">
+          <a
+            href="https://github.com/Hayyan0"
+            target="_blank"
+            class="social-link"
+            title="GitHub"
+            >GITHUB</a
+          >
+          <a
+            href="https://x.com/hyn_slm"
+            target="_blank"
+            class="social-link"
+            title="X"
+            >X</a
+          >
+          <a
+            href="https://www.instagram.com/hayansl/"
+            target="_blank"
+            class="social-link"
+            title="Instagram"
+            >INSTAGRAM</a
+          >
+          <a
+            href="https://www.youtube.com/@hayyansl"
+            target="_blank"
+            class="social-link"
+            title="YouTube"
+            >YOUTUBE</a
+          >
+        </div>
+      </footer>
+    </div>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>
