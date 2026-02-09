@@ -1,0 +1,35 @@
+[package]
+name = "hmd-app"
+version = "0.1.0"
+description = "HMD Hayyans Media Downloader"
+authors = ["Hayyan"]
+edition = "2021"
+
+
+[lib]
+name = "tauri_app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-store = "2"
+tauri-plugin-http = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["json", "stream"] }
+zip = "2"
+chrono = "0.4"
+sha2 = "0.10"
+hex = "0.4"
+futures-util = "0.3"
+system_shutdown = "4.0"
+headless_chrome = "1.0.21"
+libc = "0.2"
+

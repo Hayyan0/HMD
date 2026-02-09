@@ -1,0 +1,20 @@
+{
+  "name": "hmd-downloader",
+  "version": "0.1.0",
+  "description": "HMD Hayyans Media Downloader - A simple and powerful media downloader",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "build:linux": "tauri build --bundles appimage",
+    "build:windows": "tauri build --bundles nsis",
+    "version": "node update-tauri-version.js && git add tauri.conf.json",
+    "release:app": "npm version patch && git push && git push --tags"
+  },
+  "keywords": ["youtube", "downloader", "tauri", "media"],
+  "author": "Hayyan",
+  "license": "ISC",
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}
