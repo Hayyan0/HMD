@@ -190,15 +190,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const qualityOptions = {
     video: {
-      "Best Available": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best",
+      "Best Available": "bestvideo+bestaudio/best",
       "4K (2160p)":
-        "bestvideo[height<=2160][ext=mp4]+bestaudio[ext=m4a]/best[height<=2160]",
+        "bestvideo[height<=2160]+bestaudio/best[height<=2160]",
       "1080p":
-        "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]",
+        "bestvideo[height<=1080]+bestaudio/best[height<=1080]",
       "720p":
-        "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]",
+        "bestvideo[height<=720]+bestaudio/best[height<=720]",
       "480p":
-        "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480]",
+        "bestvideo[height<=480]+bestaudio/best[height<=480]",
     },
     audio: {
       "High Quality (MP3)": "0",
@@ -445,7 +445,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    if (step === 2) updateQualityDropdown();
+    if (step === 2 || (step === 3 && currentConfig.type === "thumbnail")) {
+      updateQualityDropdown();
+    }
   }
 
   function updateQualityDropdown() {
@@ -461,7 +463,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const heights = [
         ...new Set(
           info.formats
-            .filter((f) => f.height && f.vcodec !== "none")
+            .filter((f) => f.height && f.vcodec && f.vcodec !== "none" && f.vcodec !== "images" && f.ext !== "mhtml")
             .map((f) => f.height),
         ),
       ].sort((a, b) => b - a);
@@ -654,7 +656,9 @@ document.addEventListener("DOMContentLoaded", () => {
         title: config.info.title,
         thumb: getBestThumbnail(config.info),
         type: config.type,
-        qualityName: qualitySelect.options[qualitySelect.selectedIndex].text,
+        qualityName: qualitySelect.selectedIndex !== -1 && qualitySelect.options[qualitySelect.selectedIndex] 
+          ? qualitySelect.options[qualitySelect.selectedIndex].text 
+          : (config.type === "thumbnail" ? "Maximum Resolution" : "Default"),
         path: config.path,
         progress: 0,
         status: "INITIALIZING",
@@ -813,16 +817,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!dl) return;
 
     if (dl.isGroup) {
-      dl.children.forEach((childId) => {
-        const child = downloads[childId];
-        if (
-          child &&
-          child.status !== "PAUSED" &&
-          child.status !== "COMPLETED"
-        ) {
-          togglePause(childId);
-        }
-      });
+      const isPaused = dl.status === "PAUSED";
+      dl.children.forEach((childId) => togglePause(childId));
+      updatePauseIcon(id, !isPaused);
       return;
     }
 
@@ -865,11 +862,68 @@ document.addEventListener("DOMContentLoaded", () => {
     const tag = row.querySelector(".status-tag");
     tag.textContent = dl.status;
 
-    if (dl.status === "COMPLETED") tag.style.color = "var(--success)";
-    else if (dl.status === "ERROR") tag.style.color = "var(--error)";
+    if (dl.status === "COMPLETED") {
+      tag.style.color = "var(--success)";
+      // Update buttons for completed downloads
+      const actionsGroup = row.querySelector(".row-actions-group");
+      if (actionsGroup) {
+        actionsGroup.innerHTML = `
+          <button class="control-btn open-btn" data-id="${dl.id}" title="Open Folder">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+          </button>
+          <button class="control-btn delete-btn" data-id="${dl.id}" title="Remove from list">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+          </button>
+        `;
+        actionsGroup.querySelector(".open-btn").addEventListener("click", (e) => {
+          e.stopPropagation();
+          const targetPath = dl.path.includes(":") ? dl.path.replace(/\//g, "\\") : dl.path;
+          window.electronAPI.invoke("open-path", targetPath);
+        });
+        actionsGroup.querySelector(".delete-btn").addEventListener("click", (e) => {
+          e.stopPropagation();
+          removeDownload(dl.id);
+        });
+      }
+    } else if (dl.status === "ERROR") tag.style.color = "var(--error)";
     else if (dl.status === "PAUSED" || dl.status === "CANCELLED")
       tag.style.color = "var(--text-low)";
     else tag.style.color = "var(--accent-primary)";
+  }
+
+  function removeDownload(id) {
+    const dl = downloads[id];
+    if (!dl) return;
+
+    if (dl.isGroup) {
+      // Recursively remove children and delete their files
+      dl.children.forEach(childId => {
+        const child = downloads[childId];
+        if (child) {
+          if (child.finalPath) {
+             window.electronAPI.invoke("delete_file", child.finalPath);
+          }
+          if (child.element) {
+            child.element.remove();
+          }
+          delete downloads[childId];
+        }
+      });
+    } else {
+      // Delete physical file for single items
+      if (dl.finalPath) {
+        window.electronAPI.invoke("delete_file", dl.finalPath);
+      }
+    }
+
+    if (dl.element) {
+      dl.element.remove();
+    }
+    delete downloads[id];
+    if (Object.keys(downloads).length === 0 && emptyState) {
+      emptyState.classList.remove("hidden");
+    }
+    updateGlobalStats();
   }
 
   window.electronAPI.on("ytdlp-output", (payload) => {
@@ -896,7 +950,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
         fill.style.width = `${percent}%`;
         pText.textContent = `${percent}%`;
-        sText.textContent = speed ? `${speed} // ETA: ${eta || "---"}` : "---";
+        
+        let formattedEta = "---";
+        if (eta) {
+          const parts = eta.split(":");
+          if (parts.length === 3) { // HH:MM:SS
+            const h = parseInt(parts[0]);
+            const m = parseInt(parts[1]);
+            formattedEta = h > 0 ? `${h}h ${m}m` : `${m}m`;
+          } else if (parts.length === 2) { // MM:SS
+            formattedEta = `${parseInt(parts[0])}m`;
+          } else {
+            formattedEta = eta;
+          }
+        }
+
+        sText.textContent = speed ? `${speed} // ETA: ${formattedEta}` : "---";
 
         dl.progress = parseFloat(percent);
         if (dl.parentId) updateParentProgress(dl.parentId);
@@ -924,9 +993,11 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   window.electronAPI.on("download-finished", (payload) => {
-    const { id, code } = payload;
+    const { id, code, path } = payload;
     const dl = downloads[id];
     if (!dl || !dl.element) return;
+
+    if (path) dl.finalPath = path;
 
     if (dl.isPausing || dl.isCancelling) return;
     if (["PAUSED", "CANCELLED", "COMPLETED", "ERROR"].includes(dl.status))

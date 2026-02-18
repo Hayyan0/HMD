@@ -8,9 +8,8 @@ use tauri_plugin_shell::ShellExt;
 #[cfg(not(windows))]
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::process::CommandChild;
-#[cfg(windows)]
-use tokio::io::AsyncReadExt;
 use std::path::PathBuf;
+use std::time::Duration;
 use std::fs;
 use serde::{Deserialize, Serialize};
 use system_shutdown::{shutdown, reboot, sleep, hibernate};
@@ -31,6 +30,7 @@ enum ChildProcess {
 
 struct AppState {
     children: Mutex<HashMap<String, ChildProcess>>,
+    hw_encoder: Mutex<Option<String>>,
 }
 
 #[derive(Serialize, Clone)]
@@ -43,6 +43,7 @@ struct ProgressPayload {
 struct FinishPayload {
     id: String,
     code: Option<i32>,
+    path: Option<String>,
 }
 
 #[derive(Serialize, Clone)]
@@ -98,10 +99,10 @@ async fn check_dependencies(app: AppHandle) -> Result<serde_json::Value, String>
     let deno_path = local_app_data.join(format!("DENO/{}", deno_name));
 
     let ytdlp_status = if ytdlp_path.exists() {
-        match check_ytdlp_update(&ytdlp_path).await {
-            Ok(update_available) => !update_available,
-            Err(_) => true,
-        }
+        // Only check for updates once per session or if explicitly requested
+        // For now, we'll just check if it exists to speed up startup.
+        // The user can still update via the update button which calls download_dependencies.
+        true
     } else {
         false
     };
@@ -172,6 +173,7 @@ async fn get_video_info(app: AppHandle, payload: String) -> Result<serde_json::V
         "--dump-single-json".to_string(), 
         "--flat-playlist".to_string(), 
         "--no-warnings".to_string(),
+        "--no-check-formats".to_string(),
         "--user-agent".to_string(),
         APP_USER_AGENT.to_string()
     ];
@@ -290,18 +292,6 @@ fn detect_best_hw_encoder(ffmpeg_path: &PathBuf) -> Option<String> {
     None
 }
 
-fn extract_height(s: &str) -> Option<String> {
-    if let Some(idx) = s.find("height<=") {
-        let remainder = &s[idx + 8..];
-        let num_str: String = remainder.chars()
-            .take_while(|c| c.is_numeric())
-            .collect();
-        if !num_str.is_empty() {
-            return Some(num_str);
-        }
-    }
-    None
-}
 
 #[tauri::command]
 async fn start_download(app: AppHandle, payload: DownloadArgs, state: tauri::State<'_, AppState>) -> Result<(), String> {
@@ -315,6 +305,23 @@ async fn start_download(app: AppHandle, payload: DownloadArgs, state: tauri::Sta
 
     let ytdlp_path = local_app_data.join("YTDLP").join(ytdlp_name);
     let ffmpeg_path = local_app_data.join("FFMPEG").join(ffmpeg_name);
+
+    // Check cache for hw_encoder
+    let mut cached_encoder = None;
+    {
+        let cache = state.hw_encoder.lock().unwrap();
+        if cache.is_some() {
+            cached_encoder = cache.clone();
+        }
+    }
+
+    if cached_encoder.is_none() {
+        if let Some(encoder) = detect_best_hw_encoder(&ffmpeg_path) {
+            let mut cache = state.hw_encoder.lock().unwrap();
+            *cache = Some(encoder.clone());
+            cached_encoder = Some(encoder);
+        }
+    }
 
     if !ffmpeg_path.exists() {
         return Err("FFmpeg not found. Please re-download dependencies.".into());
@@ -344,12 +351,12 @@ async fn start_download(app: AppHandle, payload: DownloadArgs, state: tauri::Sta
     };
 
     let mut args = vec![
-        "--verbose".into(),
         "--ignore-config".into(), "--progress".into(), "--no-playlist".into(),
         "--encoding".into(), "utf-8".into(), "--newline".into(),
         "--geo-bypass".into(), "--no-mtime".into(),
+        "--force-ipv4".into(), // Faster DNS/handshake in some environments
+        "--concurrent-fragments".into(), "5".into(), // Speed up fragments
         "--user-agent".into(), APP_USER_AGENT.into(),
-        "--extractor-args".into(), "youtube:player_client=web".into(),
         "-o".into(), output_template,
     ];
 
@@ -362,39 +369,26 @@ async fn start_download(app: AppHandle, payload: DownloadArgs, state: tauri::Sta
 
     match payload.download_type.as_str() {
         "video" => {
-            let mut quality_val = payload.quality.clone();
-            
-            if !quality_val.chars().all(|c| c.is_numeric()) && quality_val.contains("height<=") {
-                 if let Some(h) = extract_height(&quality_val) {
-                     quality_val = h;
-                     println!("[DEBUG] Extracted resolution {} from complex format string", quality_val);
-                 }
-            }
-
-            let quality_clean = quality_val.to_lowercase().replace("p", "");
-            let quality_trimmed = quality_clean.trim();
-
-            let is_numeric = !quality_trimmed.is_empty() && quality_trimmed.chars().all(|c| c.is_numeric());
-
-            if is_numeric {
-                 let sort_args = format!("res:{},vcodec:h264,acodec:aac", quality_trimmed);
-                 args.extend(["-S".into(), sort_args]);
+            // Always use the quality string from the payload for the -f flag.
+            // This ensures resolution limits (e.g. [height<=720]) are honored.
+            if !payload.quality.contains("+") && !payload.quality.contains("/") {
+                args.extend(["-f".into(), format!("{}+bestaudio/best", payload.quality)]);
             } else {
-                 if !payload.quality.contains("+") {
-                      args.extend(["-f".into(), format!("{}+ba/b", payload.quality)]);
-                 } else {
-                      args.extend(["-f".into(), payload.quality]);
-                 }
+                args.extend(["-f".into(), payload.quality.clone()]);
             }
+
+            // Use -S (sort) to prefer resolution first, then codecs like H264 and AAC.
+            // This ensures we get the highest quality even if it's in a format like VP9/AV1.
+            args.extend(["-S".into(), "res,vcodec:h264,acodec:aac".into()]);
 
             let video_ext = payload.video_ext.clone().unwrap_or_else(|| "mp4".into());
+            // Always recode to the target extension to ensure compatibility regardless of source codec.
+            args.extend(["--recode-video".into(), video_ext.clone()]);
             args.extend(["--merge-output-format".into(), video_ext.clone()]);
 
             if payload.hw_accel.as_deref() == Some("auto") {
-                args.extend(["--recode-video".into(), video_ext]);
-                
-                if let Some(encoder) = detect_best_hw_encoder(&ffmpeg_path) {
-                     let ppa = format!("video-convert:-vcodec {}", encoder);
+                if let Some(encoder) = cached_encoder {
+                     let ppa = format!("VideoConvertor:-vcodec {}", encoder);
                      args.extend(["--postprocessor-args".into(), ppa]);
                 }
             }
@@ -458,11 +452,13 @@ async fn start_download(app: AppHandle, payload: DownloadArgs, state: tauri::Sta
         // Shared state for capturing output
         let stdout_lines = Arc::new(Mutex::new(Vec::<String>::new()));
         let error_lines = Arc::new(Mutex::new(Vec::<String>::new()));
+        let captured_path = Arc::new(Mutex::new(None::<String>));
 
         // Background task to read stdout - returns JoinHandle
         let app_stdout = app_clone.clone();
         let id_stdout = download_id.clone();
         let stdout_lines_clone = stdout_lines.clone();
+        let captured_path_clone = captured_path.clone();
         let stdout_id_debug = download_id.clone();
         let stdout_handle = tauri::async_runtime::spawn(async move {
             println!("[DEBUG] Stdout reader started for {}", stdout_id_debug);
@@ -501,6 +497,29 @@ async fn start_download(app: AppHandle, payload: DownloadArgs, state: tauri::Sta
                                 let mut lines = stdout_lines_clone.lock().unwrap();
                                 lines.push(line.clone());
                                 if lines.len() > 15 { lines.remove(0); }
+
+                                // Capture final path
+                                // [download] Destination: ... or [Merger] Merging formats into "..."
+                                if line.contains("[download] Destination:") {
+                                    if let Some(pos) = line.find("Destination: ") {
+                                        let path = line[pos + 13..].trim().to_string();
+                                        *captured_path_clone.lock().unwrap() = Some(path);
+                                    }
+                                } else if line.contains("Merging formats into \"") {
+                                    if let Some(start) = line.find('"') {
+                                        if let Some(end) = line.rfind('"') {
+                                            if end > start {
+                                                let path = line[start + 1..end].to_string();
+                                                *captured_path_clone.lock().unwrap() = Some(path);
+                                            }
+                                        }
+                                    }
+                                } else if line.contains("[ExtractAudio] Destination:") {
+                                     if let Some(pos) = line.find("Destination: ") {
+                                        let path = line[pos + 13..].trim().to_string();
+                                        *captured_path_clone.lock().unwrap() = Some(path);
+                                    }
+                                }
                             }
                             println!("[YT-DLP STDOUT] {}", line);
                             let _ = app_stdout.emit("ytdlp-output", ProgressPayload { id: id_stdout.clone(), data: line });
@@ -585,7 +604,8 @@ async fn start_download(app: AppHandle, payload: DownloadArgs, state: tauri::Sta
             match status {
                 Ok(s) => {
                     if s.success() {
-                        let _ = app_term.emit("download-finished", FinishPayload { id: id_term, code: s.code() });
+                        let final_path = captured_path.lock().unwrap().clone();
+                        let _ = app_term.emit("download-finished", FinishPayload { id: id_term, code: s.code(), path: final_path });
                     } else {
                         let err_lines = error_lines.lock().unwrap();
                         let out_lines = stdout_lines.lock().unwrap();
@@ -1165,10 +1185,30 @@ async fn download_and_install_update(app: AppHandle, payload: String) -> Result<
     Ok(())
 }
 
+#[tauri::command]
+async fn delete_file(path: String) -> Result<(), String> {
+    println!("[Backend] Request to delete file: {}", path);
+    let p = std::path::Path::new(&path);
+    if p.exists() {
+        if p.is_file() {
+            std::fs::remove_file(p).map_err(|e| format!("Failed to delete file: {}", e))?;
+            println!("[Backend] File deleted: {}", path);
+        } else {
+            return Err("Path is not a file".into());
+        }
+    } else {
+        println!("[Backend] File already missing: {}", path);
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .manage(AppState { children: Mutex::new(HashMap::new()) })
+        .manage(AppState { 
+            children: Mutex::new(HashMap::new()),
+            hw_encoder: Mutex::new(None),
+        })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
@@ -1178,7 +1218,7 @@ pub fn run() {
             select_folder, start_download, cancel_download, open_path, cleanup_partial_files,
             download_dependencies, restart_app,
             get_cookies_status, clear_cookies, extract_cookies, login_with_browser, system_action,
-            check_for_updates, download_and_install_update, get_app_version
+            check_for_updates, download_and_install_update, get_app_version, delete_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
