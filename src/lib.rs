@@ -9,7 +9,6 @@ use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::process::CommandChild;
 use std::path::PathBuf;
-use std::time::Duration;
 use std::fs;
 use serde::{Deserialize, Serialize};
 use system_shutdown::{shutdown, reboot, sleep, hibernate};
@@ -664,7 +663,7 @@ async fn start_download(app: AppHandle, payload: DownloadArgs, state: tauri::Sta
                             };
                             let _ = app_clone.emit("download-error", ErrorPayload { id: download_id.clone(), error: error_msg });
                         } else {
-                            let _ = app_clone.emit("download-finished", FinishPayload { id: download_id.clone(), code: p.code });
+                            let _ = app_clone.emit("download-finished", FinishPayload { id: download_id.clone(), code: p.code, path: None });
                         }
                         break;
                     }
