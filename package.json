@@ -11,7 +11,7 @@
     "version": "node update-tauri-version.js && git add tauri.conf.json",
     "release:app": "npm version patch && git push && git push --tags"
   },
-  "keywords": ["youtube", "downloader", "tauri", "media"],
+  "keywords": ["youtube", "downloader", "tauri", "media", "GUI"],
   "author": "Hayyan",
   "license": "ISC",
   "devDependencies": {
