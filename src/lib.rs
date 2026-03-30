@@ -97,11 +97,15 @@ async fn check_dependencies(app: AppHandle) -> Result<serde_json::Value, String>
     let ffmpeg_path = local_app_data.join(format!("FFMPEG/{}", ffmpeg_name));
     let deno_path = local_app_data.join(format!("DENO/{}", deno_name));
 
-    let ytdlp_status = if ytdlp_path.exists() {
-        // Only check for updates once per session or if explicitly requested
-        // For now, we'll just check if it exists to speed up startup.
-        // The user can still update via the update button which calls download_dependencies.
-        true
+    let ytdlp_status = ytdlp_path.exists();
+    let ytdlp_update_available = if ytdlp_status {
+        match check_ytdlp_update_cli(&app, &ytdlp_path).await {
+            Ok(update) => update,
+            Err(err) => {
+                let _ = app.emit("debug-log", format!("yt-dlp update check failed: {}", err));
+                false
+            }
+        }
     } else {
         false
     };
@@ -109,7 +113,8 @@ async fn check_dependencies(app: AppHandle) -> Result<serde_json::Value, String>
     Ok(serde_json::json!({
         "ytdlp": ytdlp_status,
         "ffmpeg": ffmpeg_path.exists(),
-        "deno": deno_path.exists()
+        "deno": deno_path.exists(),
+        "ytdlp_update_available": ytdlp_update_available
     }))
 }
 
@@ -158,6 +163,117 @@ async fn fetch_latest_ytdlp_hash() -> Result<String, String> {
     }
 
     Err("Hash for yt-dlp.exe not found".into())
+}
+
+async fn run_ytdlp_command(app: &AppHandle, path: &PathBuf, args: &[&str]) -> Result<(i32, String), String> {
+    #[cfg(windows)]
+    {
+        let _ = app;
+        let mut cmd = std::process::Command::new(path);
+        cmd.args(args);
+        cmd.creation_flags(CREATE_NO_WINDOW);
+        let output = cmd.output().map_err(|e| e.to_string())?;
+        let code = output.status.code().unwrap_or(-1);
+        let mut text = String::new();
+        text.push_str(&String::from_utf8_lossy(&output.stdout));
+        text.push_str(&String::from_utf8_lossy(&output.stderr));
+        return Ok((code, text));
+    }
+
+    #[cfg(not(windows))]
+    {
+        let shell = app.shell();
+        let ytdlp_str = path.to_string_lossy();
+        let output = shell
+            .command(ytdlp_str.as_ref())
+            .args(args)
+            .output()
+            .await
+            .map_err(|e: tauri_plugin_shell::Error| e.to_string())?;
+        let code = output.status.code().unwrap_or(-1);
+        let mut text = String::new();
+        text.push_str(&String::from_utf8_lossy(&output.stdout));
+        text.push_str(&String::from_utf8_lossy(&output.stderr));
+        Ok((code, text))
+    }
+}
+
+fn extract_version_token(output: &str, marker: &str) -> Option<String> {
+    for line in output.lines() {
+        if let Some(pos) = line.find(marker) {
+            let remainder = line[pos + marker.len()..].trim();
+            if let Some(token) = remainder.split_whitespace().next() {
+                if !token.is_empty() {
+                    return Some(token.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+fn parse_ytdlp_update_available(output: &str) -> bool {
+    let lower = output.to_lowercase();
+    if lower.contains("yt-dlp is up to date") || lower.contains("up to date") {
+        return false;
+    }
+
+    let current = extract_version_token(output, "yt-dlp version ");
+    let latest = extract_version_token(output, "Latest version:");
+
+    if let (Some(current), Some(latest)) = (current, latest) {
+        return current.trim() != latest.trim();
+    }
+
+    if lower.contains("update available") || lower.contains("new version") || lower.contains("outdated") {
+        return true;
+    }
+    false
+}
+
+async fn check_ytdlp_update_cli(app: &AppHandle, path: &PathBuf) -> Result<bool, String> {
+    let (code, output) = run_ytdlp_command(app, path, &["-vU"]).await?;
+    let _ = app.emit(
+        "debug-log",
+        format!("yt-dlp -vU exit code: {}\n{}", code, output),
+    );
+    if code != 0 {
+        return Err(output);
+    }
+    Ok(parse_ytdlp_update_available(&output))
+}
+
+#[tauri::command]
+async fn update_ytdlp(app: AppHandle) -> Result<(), String> {
+    let local_app_data = app.path().local_data_dir().unwrap();
+    let ytdlp_name = if cfg!(windows) { "yt-dlp.exe" } else { "yt-dlp" };
+    let ytdlp_path = local_app_data.join(format!("YTDLP/{}", ytdlp_name));
+
+    if !ytdlp_path.exists() {
+        return Err("yt-dlp missing".into());
+    }
+
+    let _ = app.emit(
+        "dependencies-download-progress",
+        serde_json::json!({ "percent": 0.0, "details": "Updating yt-dlp..." }),
+    );
+
+    let (code, output) = run_ytdlp_command(&app, &ytdlp_path, &["-U"]).await?;
+    let _ = app.emit(
+        "debug-log",
+        format!("yt-dlp -U exit code: {}\n{}", code, output),
+    );
+
+    if code != 0 {
+        return Err(output);
+    }
+
+    let _ = app.emit(
+        "dependencies-download-progress",
+        serde_json::json!({ "percent": 100.0, "details": "yt-dlp update complete." }),
+    );
+    let _ = app.emit("dependencies-download-finished", ());
+    Ok(())
 }
 
 #[tauri::command]
@@ -1215,7 +1331,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             minimize_app, maximize_app, close_app, check_dependencies, get_video_info,
             select_folder, start_download, cancel_download, open_path, cleanup_partial_files,
-            download_dependencies, restart_app,
+            download_dependencies, update_ytdlp, restart_app,
             get_cookies_status, clear_cookies, extract_cookies, login_with_browser, system_action,
             check_for_updates, download_and_install_update, get_app_version, delete_file
         ])

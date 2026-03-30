@@ -86,6 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let availableUpdate = null;
   let hasSystemUpdate = false;
+  let hasYtdlpUpdate = false;
   const downloads = {};
   let currentConfig = null;
 
@@ -110,7 +111,7 @@ document.addEventListener("DOMContentLoaded", () => {
         availableUpdate = release;
         
         // Update notification UI if no system update is already showing
-        if (!hasSystemUpdate) {
+        if (!hasSystemUpdate && !hasYtdlpUpdate) {
           updateBtn.querySelector("span").textContent = `${release.tag_name} AVAILABLE`;
           updateBtn.classList.remove("hidden");
           appStatus.style.display = "none";
@@ -1432,9 +1433,11 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const deps = await window.electronAPI.invoke("check_dependencies");
       console.log("Dependencies status:", deps);
+      const ytdlpUpdateAvailable = deps.ytdlp_update_available === true;
 
       if (!deps.ytdlp || !deps.ffmpeg || !deps.deno) {
         hasSystemUpdate = true;
+        hasYtdlpUpdate = false;
         const missing = [];
         if (!deps.ytdlp) missing.push("YT-DLP");
         if (!deps.deno) missing.push("DENO");
@@ -1448,16 +1451,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
         updateBtn.classList.remove("hidden");
         appStatus.style.display = "none";
+      } else if (ytdlpUpdateAvailable) {
+        hasSystemUpdate = false;
+        hasYtdlpUpdate = true;
+        updateBtn.querySelector("span").textContent = "UPDATE: YT-DLP";
+        updateBtn.classList.remove("hidden");
+        appStatus.style.display = "none";
       } else {
         hasSystemUpdate = false;
+        hasYtdlpUpdate = false;
         // If we have an app update, show that instead of hiding
         if (availableUpdate) {
-            updateBtn.querySelector("span").textContent = `${availableUpdate.tag_name} AVAILABLE`;
-            updateBtn.classList.remove("hidden");
+          updateBtn.querySelector("span").textContent = `${availableUpdate.tag_name} AVAILABLE`;
+          updateBtn.classList.remove("hidden");
+          appStatus.style.display = "none";
         } else {
-            updateBtn.classList.add("hidden");
+          updateBtn.classList.add("hidden");
+          appStatus.style.display = "block";
         }
-        appStatus.style.display = "none";
       }
     } catch (e) {
       console.error("Dependency check failed:", e);
@@ -1472,6 +1483,18 @@ document.addEventListener("DOMContentLoaded", () => {
         await window.electronAPI.invoke("download_dependencies");
       } catch (e) {
         console.error("Download failed:", e);
+        alert("Update failed: " + e);
+        depModal.classList.add("hidden");
+      }
+    } else if (hasYtdlpUpdate) {
+      depModalTitle.textContent = "YT-DLP UPDATING";
+      depModal.classList.remove("hidden");
+      if (depProgress) depProgress.style.width = "0%";
+      if (depStatus) depStatus.textContent = "Updating yt-dlp...";
+      try {
+        await window.electronAPI.invoke("update_ytdlp");
+      } catch (e) {
+        console.error("yt-dlp update failed:", e);
         alert("Update failed: " + e);
         depModal.classList.add("hidden");
       }
